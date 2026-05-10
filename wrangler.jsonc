@@ -1,7 +1,6 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "goodfood2",
-  "account_id": "0fd3ff687a3930edab7868fbf6c273aa",
   "compatibility_date": "2026-05-10",
   "pages_build_output_dir": "./dist",
   "d1_databases": [
