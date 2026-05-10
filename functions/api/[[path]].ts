@@ -220,7 +220,8 @@ async function insertRecipeImages(env: Env, recipeId: string, name: string, urls
 }
 
 async function generateImages(env: Env, name: string) {
-  if (env.IMAGE_PROVIDER === "dashscope") {
+  const provider = env.IMAGE_PROVIDER || (env.DASHSCOPE_API_KEY || env.IMAGE_API_KEY ? "dashscope" : "placeholder");
+  if (provider === "dashscope") {
     try {
       return await generateDashScopeImages(env, name);
     } catch (error) {
@@ -228,8 +229,8 @@ async function generateImages(env: Env, name: string) {
     }
   }
 
-  if (env.IMAGE_PROVIDER !== "placeholder") {
-    console.warn(`Unknown IMAGE_PROVIDER: ${env.IMAGE_PROVIDER}`);
+  if (provider !== "placeholder") {
+    console.warn(`Unknown IMAGE_PROVIDER: ${provider}`);
   }
   return [
     placeholderImage(name, "cover"),

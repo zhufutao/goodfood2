@@ -20,6 +20,6 @@
   "vars": {
     "APP_NAME": "青竹小吃",
     "ADMIN_EMAIL": "admin@goodfood",
-    "IMAGE_PROVIDER": "placeholder"
+    "IMAGE_PROVIDER": "dashscope"
   }
 }

@@ -342,7 +342,7 @@ function Admin() {
     else await adminCreate(form);
     setForm(emptyPayload);
     setEditing(null);
-    setMessage("已保存。当前图片 provider 为 placeholder，接入国内模型后会自动生成图片。");
+    setMessage("已保存。系统会根据环境变量自动生成或回退到占位图片。");
     await refresh();
   }
 
