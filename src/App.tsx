@@ -324,6 +324,7 @@ function Admin() {
   const [form, setForm] = useState<RecipePayload>(emptyPayload);
   const [editing, setEditing] = useState<string | null>(null);
   const [message, setMessage] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const selected = useMemo(() => recipes.find((r) => r.id === editing), [recipes, editing]);
 
@@ -337,13 +338,23 @@ function Admin() {
 
   async function submit(e: FormEvent) {
     e.preventDefault();
+    if (saving) return;
+    setSaving(true);
     setMessage("");
-    if (editing) await adminUpdate(editing, form);
-    else await adminCreate(form);
-    setForm(emptyPayload);
-    setEditing(null);
-    setMessage("已保存。系统会根据环境变量自动生成或回退到占位图片。");
-    await refresh();
+    try {
+      if (editing) {
+        await adminUpdate(editing, form);
+        setMessage("已保存修改。");
+      } else {
+        await adminCreate(form);
+        setMessage("已保存，图片正在后台生成。稍后刷新列表即可看到新图片。");
+      }
+      setForm(emptyPayload);
+      setEditing(null);
+      await refresh();
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function remove(id: string) {
@@ -372,7 +383,12 @@ function Admin() {
 
   return (
     <main className="mx-auto grid max-w-6xl gap-6 px-4 py-8 lg:grid-cols-[0.95fr_1.05fr]">
-      <form onSubmit={submit} className="rounded-3xl bg-white p-6 shadow-soft">
+      <form onSubmit={submit} className="relative rounded-3xl bg-white p-6 shadow-soft">
+        {saving && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center rounded-3xl bg-white/80 backdrop-blur-sm">
+            <div className="rounded-2xl bg-ink px-5 py-3 text-sm font-semibold text-white shadow-soft">正在保存...</div>
+          </div>
+        )}
         <h1 className="text-2xl font-bold">{editing ? `编辑：${selected?.name || ""}` : "新增小吃配方"}</h1>
         <div className="mt-5 grid gap-4">
           <Input label="名称" value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
@@ -389,7 +405,7 @@ function Admin() {
         </div>
         {message && <p className="mt-4 text-sm text-bamboo-700">{message}</p>}
         <div className="mt-5 flex gap-3">
-          <button className="rounded-full bg-ink px-5 py-3 font-semibold text-white">保存</button>
+          <button disabled={saving} className="rounded-full bg-ink px-5 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60">{saving ? "保存中..." : "保存"}</button>
           {editing && <button type="button" onClick={() => { setEditing(null); setForm(emptyPayload); }} className="rounded-full bg-appetite-100 px-5 py-3 font-semibold text-ink">取消</button>}
         </div>
       </form>

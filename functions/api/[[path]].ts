@@ -28,7 +28,7 @@ const json = (data: unknown, init: ResponseInit = {}) =>
 const ok = (data: unknown) => json({ data });
 const fail = (message: string, status = 400) => json({ error: message }, { status });
 
-export const onRequest: PagesFunction<Env> = async ({ request, env }) => {
+export const onRequest: PagesFunction<Env> = async ({ request, env, waitUntil }) => {
   try {
     const url = new URL(request.url);
     const path = url.pathname.replace(/^\/api\/?/, "");
@@ -51,7 +51,7 @@ export const onRequest: PagesFunction<Env> = async ({ request, env }) => {
       const user = await requireUser(request, env);
       if (!user || user.role !== "admin") return fail("Admin permission required", 403);
       if (request.method === "GET" && parts.length === 2) return adminList(request, env);
-      if (request.method === "POST" && parts.length === 2) return adminCreate(request, env);
+      if (request.method === "POST" && parts.length === 2) return adminCreate(request, env, waitUntil);
       if (request.method === "PUT" && parts[2]) return adminUpdate(request, env, parts[2]);
       if (request.method === "DELETE" && parts[2]) return adminDelete(env, parts[2]);
     }
@@ -173,16 +173,24 @@ async function adminList(request: Request, env: Env) {
   return ok({ categories: categories.results.map(mapCategory), recipes: recipes.results.map(mapRecipeList) });
 }
 
-async function adminCreate(request: Request, env: Env) {
+async function adminCreate(request: Request, env: Env, waitUntil: (promise: Promise<unknown>) => void) {
   const body = (await request.json()) as Record<string, string>;
   const id = crypto.randomUUID();
-  const images = await generateImages(env, body.name || "Snack");
+  const name = body.name || "Snack";
+  const images = [
+    placeholderImage(name, "cover"),
+    placeholderImage(name, "finished"),
+    placeholderImage(name, "table"),
+    placeholderImage(name, "detail"),
+  ];
+  const shouldGenerate = getImageProvider(env) === "dashscope";
   await env.DB.prepare(`
-    INSERT INTO recipes (id, category_id, name, summary, region, difficulty, cook_time, servings, ingredients, steps, tips, cover_image_url, status)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).bind(id, body.categoryId, body.name, body.summary || "", body.region || "", body.difficulty || "simple", body.cookTime || "", body.servings || "", body.ingredients, body.steps, body.tips || "", images[0], body.status || "published").run();
-  await insertRecipeImages(env, id, body.name || "Snack", images.slice(1));
-  return ok({ id });
+    INSERT INTO recipes (id, category_id, name, summary, region, difficulty, cook_time, servings, ingredients, steps, tips, cover_image_url, status, image_status)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(id, body.categoryId, body.name, body.summary || "", body.region || "", body.difficulty || "simple", body.cookTime || "", body.servings || "", body.ingredients, body.steps, body.tips || "", images[0], body.status || "published", shouldGenerate ? "generating" : "ready").run();
+  await insertRecipeImages(env, id, name, images.slice(1));
+  if (shouldGenerate) waitUntil(generateAndAttachImages(env, id, name));
+  return ok({ id, imageStatus: shouldGenerate ? "generating" : "ready" });
 }
 
 async function adminUpdate(request: Request, env: Env, id: string) {
@@ -219,8 +227,22 @@ async function insertRecipeImages(env: Env, recipeId: string, name: string, urls
   }
 }
 
+async function generateAndAttachImages(env: Env, recipeId: string, name: string) {
+  try {
+    const images = await generateImages(env, name);
+    await env.DB.prepare("UPDATE recipes SET cover_image_url = ?, image_status = 'ready', updated_at = datetime('now') WHERE id = ?")
+      .bind(images[0], recipeId)
+      .run();
+    await env.DB.prepare("DELETE FROM recipe_images WHERE recipe_id = ?").bind(recipeId).run();
+    await insertRecipeImages(env, recipeId, name, images.slice(1));
+  } catch (error) {
+    console.error("Background image generation failed", error);
+    await env.DB.prepare("UPDATE recipes SET image_status = 'failed', updated_at = datetime('now') WHERE id = ?").bind(recipeId).run();
+  }
+}
+
 async function generateImages(env: Env, name: string) {
-  const provider = env.IMAGE_PROVIDER || (env.DASHSCOPE_API_KEY || env.IMAGE_API_KEY ? "dashscope" : "placeholder");
+  const provider = getImageProvider(env);
   if (provider === "dashscope") {
     try {
       return await generateDashScopeImages(env, name);
@@ -238,6 +260,10 @@ async function generateImages(env: Env, name: string) {
     placeholderImage(name, "table"),
     placeholderImage(name, "detail"),
   ];
+}
+
+function getImageProvider(env: Env) {
+  return env.IMAGE_PROVIDER || (env.DASHSCOPE_API_KEY || env.IMAGE_API_KEY ? "dashscope" : "placeholder");
 }
 
 type DashScopeTaskResponse = {
