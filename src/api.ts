@@ -98,3 +98,9 @@ export function adminDelete(id: string) {
 export function adminImageStatus(id: string) {
   return request<{ id: string; imageStatus: string; imageError?: string }>(`/api/admin/recipes/${id}/image-status`);
 }
+
+export function adminRegenerateImages(id: string) {
+  return request<{ id: string; imageStatus: string }>(`/api/admin/recipes/${id}/regenerate-images`, {
+    method: "POST",
+  });
+}

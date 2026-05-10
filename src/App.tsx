@@ -6,6 +6,7 @@ import {
   adminDelete,
   adminImageStatus,
   adminList,
+  adminRegenerateImages,
   adminUpdate,
   getHomeData,
   getLikedRecipes,
@@ -382,6 +383,13 @@ function Admin() {
     await refresh();
   }
 
+  async function regenerateImages(id: string) {
+    setMessage("已开始重新生成图片...");
+    await adminRegenerateImages(id);
+    await refresh();
+    pollImageStatus(id);
+  }
+
   function edit(recipe: RecipeListItem) {
     getRecipe(recipe.id).then((detail) => {
       setEditing(recipe.id);
@@ -443,6 +451,7 @@ function Admin() {
                 </div>
                 <div className="truncate text-sm text-stone-600">{recipe.summary}</div>
               </div>
+              <button onClick={() => regenerateImages(recipe.id)} className="rounded-full bg-appetite-100 px-3 py-2 text-sm text-appetite-700">重新生成图片</button>
               <button onClick={() => edit(recipe)} className="rounded-full bg-bamboo-100 px-3 py-2 text-sm text-bamboo-700">修改</button>
               <button onClick={() => remove(recipe.id)} className="rounded-full bg-appetite-100 px-3 py-2 text-sm text-appetite-700">删除</button>
             </div>

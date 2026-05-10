@@ -53,6 +53,7 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, waitUntil })
       if (request.method === "GET" && parts.length === 2) return adminList(request, env);
       if (request.method === "POST" && parts.length === 2) return adminCreate(request, env, waitUntil);
       if (request.method === "GET" && parts[2] && parts[3] === "image-status") return adminImageStatus(env, parts[2]);
+      if (request.method === "POST" && parts[2] && parts[3] === "regenerate-images") return adminRegenerateImages(env, parts[2], waitUntil);
       if (request.method === "PUT" && parts[2]) return adminUpdate(request, env, parts[2]);
       if (request.method === "DELETE" && parts[2]) return adminDelete(env, parts[2]);
     }
@@ -207,6 +208,19 @@ async function adminImageStatus(env: Env, id: string) {
     imageStatus: String(row.image_status || "ready"),
     imageError: String(row.image_error || ""),
   });
+}
+
+async function adminRegenerateImages(env: Env, id: string, waitUntil: (promise: Promise<unknown>) => void) {
+  const row = await env.DB.prepare("SELECT id, name FROM recipes WHERE id = ?").bind(id).first();
+  if (!row) return fail("Recipe not found", 404);
+  if (getImageProvider(env) !== "dashscope") return fail("DashScope provider is not configured", 400);
+
+  const taskId = await createDashScopeImageTask(env, String(row.name));
+  await env.DB.prepare("UPDATE recipes SET image_status = 'generating', image_task_id = ?, image_error = '', updated_at = datetime('now') WHERE id = ?")
+    .bind(taskId, id)
+    .run();
+  waitUntil(checkAndAttachDashScopeImages(env, id));
+  return ok({ id, imageStatus: "generating" });
 }
 
 async function adminUpdate(request: Request, env: Env, id: string) {
