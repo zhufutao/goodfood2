@@ -78,7 +78,7 @@ export function adminList() {
 }
 
 export function adminCreate(payload: RecipePayload) {
-  return request<{ id: string }>("/api/admin/recipes", {
+  return request<{ id: string; imageStatus: string }>("/api/admin/recipes", {
     method: "POST",
     body: JSON.stringify(payload),
   });
@@ -93,4 +93,8 @@ export function adminUpdate(id: string, payload: RecipePayload) {
 
 export function adminDelete(id: string) {
   return request<{ ok: true }>(`/api/admin/recipes/${id}`, { method: "DELETE" });
+}
+
+export function adminImageStatus(id: string) {
+  return request<{ id: string; imageStatus: string; imageError?: string }>(`/api/admin/recipes/${id}/image-status`);
 }

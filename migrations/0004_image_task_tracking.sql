@@ -1,0 +1,2 @@
+ALTER TABLE recipes ADD COLUMN image_task_id TEXT NOT NULL DEFAULT '';
+ALTER TABLE recipes ADD COLUMN image_error TEXT NOT NULL DEFAULT '';

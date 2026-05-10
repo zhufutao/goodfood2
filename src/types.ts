@@ -16,6 +16,7 @@ export type RecipeListItem = {
   coverImageUrl: string;
   likeCount: number;
   liked: boolean;
+  imageStatus?: "ready" | "generating" | "failed";
 };
 
 export type RecipeDetail = RecipeListItem & {

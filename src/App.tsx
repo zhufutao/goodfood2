@@ -4,6 +4,7 @@ import { Link, Navigate, Route, Routes, useNavigate, useParams, useSearchParams 
 import {
   adminCreate,
   adminDelete,
+  adminImageStatus,
   adminList,
   adminUpdate,
   getHomeData,
@@ -346,8 +347,9 @@ function Admin() {
         await adminUpdate(editing, form);
         setMessage("已保存修改。");
       } else {
-        await adminCreate(form);
-        setMessage("已保存，图片正在后台生成。稍后刷新列表即可看到新图片。");
+        const created = await adminCreate(form);
+        setMessage(created.imageStatus === "generating" ? "已保存，图片正在生成中..." : "已保存。");
+        if (created.imageStatus === "generating") pollImageStatus(created.id);
       }
       setForm(emptyPayload);
       setEditing(null);
@@ -355,6 +357,24 @@ function Admin() {
     } finally {
       setSaving(false);
     }
+  }
+
+  async function pollImageStatus(id: string) {
+    for (let attempt = 0; attempt < 30; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 4000));
+      const status = await adminImageStatus(id);
+      if (status.imageStatus === "ready") {
+        setMessage("图片已生成完成。");
+        await refresh();
+        return;
+      }
+      if (status.imageStatus === "failed") {
+        setMessage(`图片生成失败：${status.imageError || "请稍后重试"}`);
+        await refresh();
+        return;
+      }
+    }
+    setMessage("图片仍在生成中，稍后刷新页面查看结果。");
   }
 
   async function remove(id: string) {
@@ -415,7 +435,14 @@ function Admin() {
           {recipes.map((recipe) => (
             <div key={recipe.id} className="flex items-center gap-3 rounded-2xl border border-appetite-100 p-3">
               <img src={recipe.coverImageUrl || placeholder(recipe.name)} className="h-16 w-20 rounded-xl object-cover" />
-              <div className="min-w-0 flex-1"><div className="font-bold">{recipe.name}</div><div className="truncate text-sm text-stone-600">{recipe.summary}</div></div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 font-bold">
+                  {recipe.name}
+                  {recipe.imageStatus === "generating" && <span className="rounded-full bg-appetite-100 px-2 py-0.5 text-xs font-medium text-appetite-700">生成中</span>}
+                  {recipe.imageStatus === "failed" && <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">生成失败</span>}
+                </div>
+                <div className="truncate text-sm text-stone-600">{recipe.summary}</div>
+              </div>
               <button onClick={() => edit(recipe)} className="rounded-full bg-bamboo-100 px-3 py-2 text-sm text-bamboo-700">修改</button>
               <button onClick={() => remove(recipe.id)} className="rounded-full bg-appetite-100 px-3 py-2 text-sm text-appetite-700">删除</button>
             </div>

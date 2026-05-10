@@ -52,6 +52,7 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, waitUntil })
       if (!user || user.role !== "admin") return fail("Admin permission required", 403);
       if (request.method === "GET" && parts.length === 2) return adminList(request, env);
       if (request.method === "POST" && parts.length === 2) return adminCreate(request, env, waitUntil);
+      if (request.method === "GET" && parts[2] && parts[3] === "image-status") return adminImageStatus(env, parts[2]);
       if (request.method === "PUT" && parts[2]) return adminUpdate(request, env, parts[2]);
       if (request.method === "DELETE" && parts[2]) return adminDelete(env, parts[2]);
     }
@@ -184,13 +185,28 @@ async function adminCreate(request: Request, env: Env, waitUntil: (promise: Prom
     placeholderImage(name, "detail"),
   ];
   const shouldGenerate = getImageProvider(env) === "dashscope";
+  const taskId = shouldGenerate ? await createDashScopeImageTask(env, name).catch((error) => {
+    console.error("DashScope task creation failed", error);
+    return "";
+  }) : "";
   await env.DB.prepare(`
-    INSERT INTO recipes (id, category_id, name, summary, region, difficulty, cook_time, servings, ingredients, steps, tips, cover_image_url, status, image_status)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).bind(id, body.categoryId, body.name, body.summary || "", body.region || "", body.difficulty || "simple", body.cookTime || "", body.servings || "", body.ingredients, body.steps, body.tips || "", images[0], body.status || "published", shouldGenerate ? "generating" : "ready").run();
+    INSERT INTO recipes (id, category_id, name, summary, region, difficulty, cook_time, servings, ingredients, steps, tips, cover_image_url, status, image_status, image_task_id, image_error)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(id, body.categoryId, body.name, body.summary || "", body.region || "", body.difficulty || "simple", body.cookTime || "", body.servings || "", body.ingredients, body.steps, body.tips || "", images[0], body.status || "published", taskId ? "generating" : "ready", taskId, taskId ? "" : "DashScope task was not created").run();
   await insertRecipeImages(env, id, name, images.slice(1));
-  if (shouldGenerate) waitUntil(generateAndAttachImages(env, id, name));
-  return ok({ id, imageStatus: shouldGenerate ? "generating" : "ready" });
+  if (taskId) waitUntil(checkAndAttachDashScopeImages(env, id));
+  return ok({ id, imageStatus: taskId ? "generating" : "ready" });
+}
+
+async function adminImageStatus(env: Env, id: string) {
+  await checkAndAttachDashScopeImages(env, id);
+  const row = await env.DB.prepare("SELECT id, image_status, image_error FROM recipes WHERE id = ?").bind(id).first();
+  if (!row) return fail("Recipe not found", 404);
+  return ok({
+    id: String(row.id),
+    imageStatus: String(row.image_status || "ready"),
+    imageError: String(row.image_error || ""),
+  });
 }
 
 async function adminUpdate(request: Request, env: Env, id: string) {
@@ -241,6 +257,25 @@ async function generateAndAttachImages(env: Env, recipeId: string, name: string)
   }
 }
 
+async function checkAndAttachDashScopeImages(env: Env, recipeId: string) {
+  const row = await env.DB.prepare("SELECT id, name, image_status, image_task_id FROM recipes WHERE id = ?").bind(recipeId).first();
+  if (!row || row.image_status !== "generating" || !row.image_task_id) return;
+  try {
+    const urls = await pollDashScopeTaskOnce(env, String(row.image_task_id));
+    if (!urls) return;
+    const images = await persistGeneratedImages(env, String(row.name), urls);
+    await env.DB.prepare("UPDATE recipes SET cover_image_url = ?, image_status = 'ready', image_error = '', updated_at = datetime('now') WHERE id = ?")
+      .bind(images[0], recipeId)
+      .run();
+    await env.DB.prepare("DELETE FROM recipe_images WHERE recipe_id = ?").bind(recipeId).run();
+    await insertRecipeImages(env, recipeId, String(row.name), images.slice(1));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Image generation failed";
+    console.error("Image status check failed", error);
+    await env.DB.prepare("UPDATE recipes SET image_status = 'failed', image_error = ?, updated_at = datetime('now') WHERE id = ?").bind(message, recipeId).run();
+  }
+}
+
 async function generateImages(env: Env, name: string) {
   const provider = getImageProvider(env);
   if (provider === "dashscope") {
@@ -279,6 +314,17 @@ type DashScopeTaskResponse = {
 };
 
 async function generateDashScopeImages(env: Env, name: string) {
+  const taskId = await createDashScopeImageTask(env, name);
+  for (let attempt = 0; attempt < 36; attempt += 1) {
+    await sleep(2500);
+    const urls = await pollDashScopeTaskOnce(env, taskId);
+    if (urls) return persistGeneratedImages(env, name, urls);
+  }
+
+  throw new Error("DashScope image task timed out");
+}
+
+async function createDashScopeImageTask(env: Env, name: string) {
   const apiKey = env.DASHSCOPE_API_KEY || env.IMAGE_API_KEY;
   if (!apiKey) throw new Error("DASHSCOPE_API_KEY is not configured");
 
@@ -307,25 +353,26 @@ async function generateDashScopeImages(env: Env, name: string) {
     throw new Error(created.message || created.output?.message || "Failed to create DashScope image task");
   }
 
-  const taskId = created.output.task_id;
-  for (let attempt = 0; attempt < 36; attempt += 1) {
-    await sleep(2500);
-    const pollRes = await fetch(`https://dashscope.aliyuncs.com/api/v1/tasks/${taskId}`, {
-      headers: { Authorization: `Bearer ${apiKey}` },
-    });
-    const task = (await pollRes.json()) as DashScopeTaskResponse;
-    const status = task.output?.task_status;
-    if (status === "SUCCEEDED") {
-      const urls = (task.output?.results || []).map((item) => item.url).filter((url): url is string => Boolean(url));
-      if (!urls.length) throw new Error("DashScope returned no image URLs");
-      return persistGeneratedImages(env, name, urls);
-    }
-    if (status === "FAILED" || status === "CANCELED" || status === "UNKNOWN") {
-      throw new Error(task.output?.message || `DashScope task ${status}`);
-    }
-  }
+  return created.output.task_id;
+}
 
-  throw new Error("DashScope image task timed out");
+async function pollDashScopeTaskOnce(env: Env, taskId: string) {
+  const apiKey = env.DASHSCOPE_API_KEY || env.IMAGE_API_KEY;
+  if (!apiKey) throw new Error("DASHSCOPE_API_KEY is not configured");
+  const pollRes = await fetch(`https://dashscope.aliyuncs.com/api/v1/tasks/${taskId}`, {
+    headers: { Authorization: `Bearer ${apiKey}` },
+  });
+  const task = (await pollRes.json()) as DashScopeTaskResponse;
+  const status = task.output?.task_status;
+  if (status === "SUCCEEDED") {
+    const urls = (task.output?.results || []).map((item) => item.url).filter((url): url is string => Boolean(url));
+    if (!urls.length) throw new Error("DashScope returned no image URLs");
+    return urls;
+  }
+  if (status === "FAILED" || status === "CANCELED" || status === "UNKNOWN") {
+    throw new Error(task.output?.message || `DashScope task ${status}`);
+  }
+  return null;
 }
 
 function dashScopeHeaders(apiKey: string, env: Env) {
@@ -472,6 +519,7 @@ function mapRecipeList(row: Record<string, unknown>) {
     coverImageUrl: String(row.cover_image_url || ""),
     likeCount: Number(row.like_count || 0),
     liked: Boolean(row.liked),
+    imageStatus: row.image_status === "generating" || row.image_status === "failed" ? String(row.image_status) : "ready",
   };
 }
 
