@@ -1,0 +1,25 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "goodfood2",
+  "compatibility_date": "2026-05-10",
+  "pages_build_output_dir": "./dist",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "goodfood2-db",
+      "database_id": "bea190f0-f69d-4f39-aded-34dbf610b68f",
+      "migrations_dir": "./migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "FOOD_IMAGES",
+      "bucket_name": "goodfood2-images"
+    }
+  ],
+  "vars": {
+    "APP_NAME": "青竹小吃",
+    "ADMIN_EMAIL": "admin@goodfood",
+    "IMAGE_PROVIDER": "placeholder"
+  }
+}
