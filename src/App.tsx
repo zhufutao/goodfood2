@@ -1,4 +1,4 @@
-import { Heart, LogOut, Search, Shield, UserRound, Utensils } from "lucide-react";
+import { Clock3, Heart, LogOut, Search, Shield, Sparkles, UserRound, Utensils } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link, Navigate, Route, Routes, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
@@ -138,41 +138,54 @@ function Home() {
   }
 
   return (
-    <main>
-      <section className="mx-auto grid max-w-6xl gap-8 px-4 py-8 md:grid-cols-[1.05fr_0.95fr] md:py-12">
-        <div className="flex flex-col justify-center">
-          <p className="mb-3 text-sm font-semibold text-appetite-700">每日小吃配方</p>
-          <h1 className="max-w-xl text-4xl font-bold leading-tight text-ink md:text-6xl">把街边热乎味道，带回家做。</h1>
+    <main className="home-canvas">
+      <section className="mx-auto grid max-w-6xl gap-7 px-4 pb-7 pt-6 sm:pt-8 md:grid-cols-[1.02fr_0.98fr] md:gap-10 md:pb-10 md:pt-12">
+        <div className="relative flex flex-col justify-center">
+          <div className="mb-4 inline-flex w-fit items-center gap-2 rounded-full border border-appetite-100 bg-white/80 px-3 py-1.5 text-xs font-bold text-appetite-700 shadow-sm">
+            <Sparkles size={14} /> 每日小吃配方
+          </div>
+          <h1 className="home-title max-w-2xl text-4xl font-black leading-[1.04] text-ink sm:text-5xl md:text-6xl">把街边热乎味道，带回家做。</h1>
           <p className="mt-5 max-w-xl text-base leading-7 text-stone-700 md:text-lg">
-            按分类找小吃，收藏喜欢的配方。管理员可录入配方并生成展示图，适合逐步沉淀自己的小吃菜单库。
+            分类找小吃，按名字搜索，收藏常做配方。青竹小吃把夜市、早餐摊和家常锅气整理成一张温暖菜单。
           </p>
-          <div className="mt-7 flex max-w-xl items-center gap-3 rounded-full border border-appetite-100 bg-white px-4 py-3 shadow-soft">
+          <div className="mt-7 flex max-w-xl items-center gap-3 rounded-2xl border border-appetite-100 bg-white/95 px-4 py-3 shadow-soft sm:rounded-full">
             <Search className="shrink-0 text-appetite-700" size={20} />
             <input
-              className="w-full bg-transparent outline-none"
+              className="w-full bg-transparent text-base outline-none placeholder:text-stone-400"
               placeholder="搜索小吃名称，例如 葱油饼"
               value={q}
               onChange={(e) => setFilter({ q: e.target.value })}
             />
           </div>
+          <div className="mt-5 grid grid-cols-3 gap-2 text-center text-xs text-stone-600 sm:max-w-xl sm:text-sm">
+            <div className="rounded-2xl border border-white bg-white/70 px-3 py-3"><b className="block text-lg text-ink">{recipes.length}</b>当前菜单</div>
+            <div className="rounded-2xl border border-white bg-white/70 px-3 py-3"><b className="block text-lg text-ink">{categories.length}</b>小吃分类</div>
+            <div className="rounded-2xl border border-white bg-white/70 px-3 py-3"><b className="block text-lg text-ink">AI</b>生成配图</div>
+          </div>
         </div>
-        <div className="grid min-h-80 grid-cols-2 gap-3 overflow-hidden rounded-[2rem] bg-white p-3 shadow-soft">
-          {["https://images.unsplash.com/photo-1551183053-bf91a1d81141?auto=format&fit=crop&w=900&q=80", "https://images.unsplash.com/photo-1512058564366-18510be2db19?auto=format&fit=crop&w=900&q=80", "https://images.unsplash.com/photo-1603133872878-684f208fb84b?auto=format&fit=crop&w=900&q=80", "https://images.unsplash.com/photo-1505253716362-afaea1d3d1af?auto=format&fit=crop&w=900&q=80"].map((src, index) => (
-            <img key={src} src={src} className={`h-full min-h-36 w-full object-cover ${index === 0 ? "rounded-tl-[1.5rem]" : ""} ${index === 3 ? "rounded-br-[1.5rem]" : ""}`} />
-          ))}
+        <div className="home-photo-board relative min-h-[19rem] overflow-hidden rounded-[1.75rem] border border-white/80 bg-white p-2 shadow-soft sm:min-h-[25rem] sm:rounded-[2.25rem]">
+          <img src="https://images.unsplash.com/photo-1512058564366-18510be2db19?auto=format&fit=crop&w=1000&q=80" className="absolute inset-x-2 top-2 h-[58%] w-[calc(100%-1rem)] rounded-[1.35rem] object-cover sm:rounded-[1.85rem]" alt="热炒小吃" />
+          <img src="https://images.unsplash.com/photo-1603133872878-684f208fb84b?auto=format&fit=crop&w=700&q=80" className="absolute bottom-2 left-2 h-[38%] w-[48%] rounded-[1.25rem] object-cover sm:rounded-[1.6rem]" alt="家常炒饭" />
+          <img src="https://images.unsplash.com/photo-1551183053-bf91a1d81141?auto=format&fit=crop&w=700&q=80" className="absolute bottom-2 right-2 h-[38%] w-[48%] rounded-[1.25rem] object-cover sm:rounded-[1.6rem]" alt="面点小吃" />
+          <div className="absolute bottom-[34%] left-5 right-5 rounded-2xl border border-white/70 bg-ink/88 px-4 py-3 text-white shadow-soft backdrop-blur">
+            <p className="text-xs font-semibold text-appetite-100">今晚推荐</p>
+            <p className="mt-1 text-lg font-bold">一份热乎小吃，配一碗清粥。</p>
+          </div>
         </div>
       </section>
 
       <section className="mx-auto max-w-6xl px-4 pb-12">
-        <div className="mb-6 flex gap-2 overflow-x-auto pb-2">
-          <button onClick={() => setFilter({ category: "" })} className={`shrink-0 rounded-full px-4 py-2 text-sm font-medium ${!category ? "bg-bamboo-700 text-white" : "bg-white text-ink hover:bg-bamboo-100"}`}>
+        <div className="sticky top-[65px] z-20 -mx-4 mb-6 border-y border-appetite-100/70 bg-appetite-50/85 px-4 py-3 backdrop-blur md:static md:mx-0 md:border-0 md:bg-transparent md:px-0 md:py-0">
+          <div className="flex gap-2 overflow-x-auto pb-1">
+          <button onClick={() => setFilter({ category: "" })} className={`shrink-0 rounded-full px-4 py-2 text-sm font-bold transition ${!category ? "bg-bamboo-700 text-white shadow-md" : "bg-white text-ink hover:bg-bamboo-100"}`}>
             全部
           </button>
           {categories.map((item) => (
-            <button key={item.id} onClick={() => setFilter({ category: item.id })} className={`shrink-0 rounded-full px-4 py-2 text-sm font-medium ${category === item.id ? "bg-bamboo-700 text-white" : "bg-white text-ink hover:bg-bamboo-100"}`}>
+            <button key={item.id} onClick={() => setFilter({ category: item.id })} className={`shrink-0 rounded-full px-4 py-2 text-sm font-bold transition ${category === item.id ? "bg-bamboo-700 text-white shadow-md" : "bg-white text-ink hover:bg-bamboo-100"}`}>
               {item.name}
             </button>
           ))}
+          </div>
         </div>
         {loading ? <PageLoading /> : <RecipeGrid recipes={recipes} emptyText="暂无匹配的小吃" />}
       </section>
@@ -183,21 +196,23 @@ function Home() {
 function RecipeGrid({ recipes, emptyText }: { recipes: RecipeListItem[]; emptyText: string }) {
   if (!recipes.length) return <div className="rounded-2xl bg-white p-10 text-center text-stone-600 shadow-soft">{emptyText}</div>;
   return (
-    <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6">
       {recipes.map((recipe) => (
-        <Link to={`/recipes/${recipe.id}`} key={recipe.id} className="group overflow-hidden rounded-2xl bg-white shadow-soft transition hover:-translate-y-1">
-          <div className="aspect-[4/3] overflow-hidden bg-appetite-100">
-            <img src={recipe.coverImageUrl || placeholder(recipe.name)} alt={recipe.name} className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
+        <Link to={`/recipes/${recipe.id}`} key={recipe.id} className="group overflow-hidden rounded-[1.4rem] border border-white/80 bg-white shadow-soft transition hover:-translate-y-1 hover:shadow-xl">
+          <div className="relative aspect-[4/3] overflow-hidden bg-appetite-100">
+            <img src={recipe.coverImageUrl || placeholder(recipe.name)} alt={recipe.name} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+            <span className="absolute left-3 top-3 rounded-full bg-white/92 px-3 py-1 text-xs font-bold text-bamboo-700 shadow-sm">{recipe.categoryName}</span>
+            <span className="absolute bottom-3 right-3 flex items-center gap-1 rounded-full bg-ink/85 px-3 py-1 text-xs font-bold text-white backdrop-blur"><Heart size={14} fill={recipe.liked ? "currentColor" : "none"} /> {recipe.likeCount}</span>
           </div>
-          <div className="p-5">
-            <div className="mb-2 flex items-center justify-between gap-3">
-              <h3 className="text-xl font-bold text-ink">{recipe.name}</h3>
-              <span className="rounded-full bg-bamboo-50 px-3 py-1 text-xs font-medium text-bamboo-700">{recipe.categoryName}</span>
+          <div className="p-4 sm:p-5">
+            <div className="mb-2 flex items-start justify-between gap-3">
+              <h3 className="text-xl font-black leading-tight text-ink">{recipe.name}</h3>
+              <span className="mt-0.5 flex shrink-0 items-center gap-1 rounded-full bg-appetite-50 px-2.5 py-1 text-xs font-bold text-appetite-700"><Clock3 size={13} /> {recipe.cookTime || "快手"}</span>
             </div>
             <p className="line-clamp-2 min-h-12 text-sm leading-6 text-stone-600">{recipe.summary}</p>
-            <div className="mt-4 flex items-center justify-between text-sm text-stone-600">
+            <div className="mt-4 flex items-center justify-between border-t border-appetite-100 pt-3 text-sm text-stone-600">
               <span>{recipe.region || "家常"} · {recipe.difficulty}</span>
-              <span className="flex items-center gap-1 text-appetite-700"><Heart size={16} fill={recipe.liked ? "currentColor" : "none"} /> {recipe.likeCount}</span>
+              <span className="text-xs font-semibold text-bamboo-700">查看配方</span>
             </div>
           </div>
         </Link>

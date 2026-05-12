@@ -23,6 +23,46 @@ select {
   font: inherit;
 }
 
+.home-canvas {
+  position: relative;
+  overflow: hidden;
+}
+
+.home-canvas::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, rgba(56, 82, 37, 0.045) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(56, 82, 37, 0.035) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: linear-gradient(180deg, black 0%, transparent 58%);
+}
+
+.home-title {
+  letter-spacing: 0;
+  text-wrap: balance;
+}
+
+.home-photo-board {
+  isolation: isolate;
+}
+
+.home-photo-board::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(135deg, rgba(255, 248, 239, 0.16), transparent 42%, rgba(42, 34, 29, 0.10));
+}
+
+@media (max-width: 640px) {
+  .home-title {
+    max-width: 11ch;
+  }
+}
+
 .poster-paper {
   background:
     linear-gradient(135deg, rgba(255, 255, 255, 0.94), rgba(253, 235, 212, 0.72)),
